@@ -74,10 +74,10 @@ export const insurers = [
   {
     id: "kakao",
     name: "카카오페이손해보험",
-    sourceUrl: "https://www.kakaopayinscorp.co.kr/",
-    allowedHosts: ["kakaopayinscorp.co.kr", "www.kakaopayinscorp.co.kr", "static.kakaoinsure.com"],
-    strategy: "html_pdf_index",
-    status: "probe_ready"
+    sourceUrl: "https://www.kakaopayinscorp.co.kr/disclosure/goods",
+    allowedHosts: ["kakaopayinscorp.co.kr", "www.kakaopayinscorp.co.kr", "static.kakaoinsure.com", "papi.kakaoinsure.com"],
+    strategy: "kakao_public_json",
+    status: "live_adapter"
   }
 ];
 

@@ -10,6 +10,7 @@ import { mapMeritzProduct } from "../src/adapters/meritz.mjs";
 import { mapLotteProduct, parseLotteCatalog } from "../src/adapters/lotte.mjs";
 import { mapHeungkukProduct, parseHeungkukRows } from "../src/adapters/heungkuk.mjs";
 import { mapNhRevision, parseNhCatalog, parseNhPdtInfo } from "../src/adapters/nh.mjs";
+import { mapKakaoProduct, parseKakaoDate, encodeKakaoUrl } from "../src/adapters/kakao.mjs";
 
 test("document type classification", () => {
   assert.equal(classifyDocument("상품 요약서 PDF"), "상품요약서");
@@ -252,6 +253,56 @@ test("NH public Devon XML response maps three disclosure documents", () => {
   assert.equal(documents[1].documentType, "상품요약서");
   assert.equal(documents[2].documentType, "사업방법서");
 });
+
+test("Kakao public JSON response maps three disclosure documents", () => {
+  assert.equal(parseKakaoDate("26.08.24"), "2026-08-24");
+  assert.equal(parseKakaoDate("2025.1.5"), "2025-01-05");
+  assert.equal(
+    encodeKakaoUrl("https://static.kakaoinsure.com/files/테스트 파일(v1).pdf"),
+    "https://static.kakaoinsure.com/files/%ED%85%8C%EC%8A%A4%ED%8A%B8%20%ED%8C%8C%EC%9D%BC(v1).pdf"
+  );
+
+  const sampleItem = {
+    id: 629,
+    title: "(무)건강보험2608",
+    etc1: "장기보험",
+    etc2: "장기기타",
+    etc3: "26.08.24 ~ 현재",
+    displayPeriodStart: "2026-09-03T23:05:18",
+    filePathList: [
+      {
+        fileId: 746,
+        filePath: "https://static.kakaoinsure.com/notilus/files/무배당 건강보험2608_사업방법서 별지.pdf",
+        type: "BUSINESS_PLAN"
+      },
+      {
+        fileId: 747,
+        filePath: "https://static.kakaoinsure.com/notilus/files/무배당 건강보험2608_상품요약서_공시용.pdf",
+        type: "PRODUCT_SUMMARY"
+      },
+      {
+        fileId: 748,
+        filePath: "https://static.kakaoinsure.com/notilus/files/무배당 건강보험2608_보험약관.pdf",
+        type: "INSURANCE_POLICY"
+      }
+    ]
+  };
+
+  const documents = mapKakaoProduct(sampleItem, ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].insurerId, "kakao");
+  assert.equal(documents[0].insurerName, "카카오페이손해보험");
+  assert.equal(documents[0].registeredAt, "2026-08-24");
+  assert.equal(documents[0].saleEndedAt, null);
+  assert.equal(documents[0].saleStatus, "판매중");
+  assert.equal(documents[0].productCategory, "장기보험");
+
+  assert.equal(documents[0].documentType, "사업방법서");
+  assert.equal(documents[1].documentType, "상품요약서");
+  assert.equal(documents[2].documentType, "보험약관");
+  assert.match(documents[2].sourceUrl, /^https:\/\/static\.kakaoinsure\.com\//);
+});
+
 
 
 
