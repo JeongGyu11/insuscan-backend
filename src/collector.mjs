@@ -135,7 +135,7 @@ export function validateSearchRequest(body) {
   if (!documentTypes.length || documentTypes.some((type) => !DOCUMENT_TYPES.has(type))) {
     throw new Error("상품요약서, 사업방법서, 보험약관 중 하나 이상을 선택하세요.");
   }
-  return { insurerIds, documentTypes, startDate: body.startDate, endDate: body.endDate };
+  return { insurerIds, documentTypes, startDate: body.startDate, endDate: body.endDate, keyword: body.keyword || "" };
 }
 
 function assertAllowedSource(document) {
