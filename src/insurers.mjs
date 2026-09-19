@@ -34,10 +34,10 @@ export const insurers = [
   {
     id: "lotte",
     name: "롯데손해보험",
-    sourceUrl: "https://biz.lotteins.co.kr/web/C/D/H/cdh170.jsp",
+    sourceUrl: "https://www.lotteins.co.kr/web/C/D/H/cdh190.jsp",
     allowedHosts: ["lotteins.co.kr", "www.lotteins.co.kr", "biz.lotteins.co.kr"],
-    strategy: "html_pdf_index",
-    status: "probe_ready"
+    strategy: "lotte_public_html",
+    status: "live_adapter"
   },
   {
     id: "meritz",

@@ -7,6 +7,7 @@ import { mapDbProduct } from "../src/adapters/db.mjs";
 import { parseKbDetail } from "../src/adapters/kb.mjs";
 import { mapSamsungProduct } from "../src/adapters/samsung.mjs";
 import { mapMeritzProduct } from "../src/adapters/meritz.mjs";
+import { mapLotteProduct, parseLotteCatalog } from "../src/adapters/lotte.mjs";
 
 test("document type classification", () => {
   assert.equal(classifyDocument("상품 요약서 PDF"), "상품요약서");
@@ -144,3 +145,26 @@ test("Meritz public product response maps three disclosure documents", () => {
   assert.equal(documents[0].insurerId, "meritz");
   assert.equal(documents[2].encryptedPath, "encrypted-summary");
 });
+
+test("Lotte public catalog response maps three disclosure documents", () => {
+  const sampleHtml = `
+    parent.document.getElementById("searchviewissale").innerHTML = "<table><tr><th scope='col'>상품군</th></tr><tr><td class='alignC'>자동차</td><td class='alignC'>let:way 개인용자동차보험</td><td class='alignC'>2026.09.10 ~ <br>현재</td><td class='alignC'><a href=/upload/C/newProduct/CA00101001_20260910.pdf target='_blank'>약관</a></td><td class='alignC'><a href=/upload/C/newProduct/carmethod_20260801.pdf target='_blank'>사업방법서</a></td><td class='lst alignC'><a href=/upload/C/newProduct/carsum_CA00101001_20251110.pdf target='_blank'>상품요약서</a></td></tr></table>";
+    parent.document.getElementById("searchviewisnotsale").innerHTML = "";
+  `;
+  const products = parseLotteCatalog(sampleHtml);
+  assert.equal(products.length, 1);
+  assert.equal(products[0].productName, "let:way 개인용자동차보험");
+  assert.equal(products[0].registeredAt, "2026-09-10");
+  assert.equal(products[0].saleEndedAt, null);
+  assert.equal(products[0].saleStatus, "판매중");
+
+  const documents = mapLotteProduct(products[0], ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].insurerId, "lotte");
+  assert.equal(documents[0].insurerName, "롯데손해보험");
+  assert.equal(documents[0].documentType, "보험약관");
+  assert.equal(documents[0].sourceUrl, "https://www.lotteins.co.kr/upload/C/newProduct/CA00101001_20260910.pdf");
+  assert.equal(documents[1].documentType, "사업방법서");
+  assert.equal(documents[2].documentType, "상품요약서");
+});
+
