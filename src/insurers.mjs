@@ -50,10 +50,10 @@ export const insurers = [
   {
     id: "heungkuk",
     name: "흥국화재",
-    sourceUrl: "https://www.heungkukfire.co.kr/FRW/announce/goodsUseInfo.do",
+    sourceUrl: "https://www.heungkukfire.co.kr/FRW/announce/insGoodsGongsiSale.do",
     allowedHosts: ["heungkukfire.co.kr", "www.heungkukfire.co.kr"],
-    strategy: "html_pdf_index",
-    status: "probe_ready"
+    strategy: "heungkuk_public_html",
+    status: "live_adapter"
   },
   {
     id: "nh",

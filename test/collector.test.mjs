@@ -8,6 +8,7 @@ import { parseKbDetail } from "../src/adapters/kb.mjs";
 import { mapSamsungProduct } from "../src/adapters/samsung.mjs";
 import { mapMeritzProduct } from "../src/adapters/meritz.mjs";
 import { mapLotteProduct, parseLotteCatalog } from "../src/adapters/lotte.mjs";
+import { mapHeungkukProduct, parseHeungkukRows } from "../src/adapters/heungkuk.mjs";
 
 test("document type classification", () => {
   assert.equal(classifyDocument("상품 요약서 PDF"), "상품요약서");
@@ -167,4 +168,37 @@ test("Lotte public catalog response maps three disclosure documents", () => {
   assert.equal(documents[1].documentType, "사업방법서");
   assert.equal(documents[2].documentType, "상품요약서");
 });
+
+test("Heungkuk public table response maps three disclosure documents", () => {
+  const sampleHtml = `
+    <tr>
+      <td><span>의료/건강</span></td>
+      <td><span>2026</span></td>
+      <td class="t_left"><span>무배당 흥Good 모두 담은 123 치매보험(26.05)</span></td>
+      <td class=""><span class="fz14">2026-09-01 </span></td>
+      <td>
+        <span class="btn_white7"><a href="#" title="약관.pdf" onclick="fn_filedownX('/Upload/gongsi/goods/','약관.pdf', '1789106000893279.pdf'); return false;">상품약관</a></span>
+        <span class="btn_white7"><a href="#" title="사업방법서.pdf" onclick="fn_filedownX('/Upload/gongsi/goods/','사업방법서.pdf', '1789106000927799.pdf'); return false;">사업방법서</a></span>
+        <span class="btn_white7"><a href="#" title="상품요약서.pdf" onclick="fn_filedownX('/Upload/gongsi/goods/','상품요약서.pdf', '1789106000938417.pdf'); return false;">상품요약서</a></span>
+      </td>
+    </tr>
+  `;
+  const products = parseHeungkukRows(sampleHtml, "판매중");
+  assert.equal(products.length, 1);
+  assert.equal(products[0].productName, "무배당 흥Good 모두 담은 123 치매보험(26.05)");
+  assert.equal(products[0].registeredAt, "2026-09-01");
+  assert.equal(products[0].saleEndedAt, null);
+  assert.equal(products[0].saleStatus, "판매중");
+
+  const documents = mapHeungkukProduct(products[0], ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].insurerId, "heungkuk");
+  assert.equal(documents[0].insurerName, "흥국화재");
+  assert.equal(documents[0].documentType, "보험약관");
+  assert.equal(documents[0].fileSaveName, "1789106000893279.pdf");
+  assert.equal(documents[0].sourceUrl.startsWith("https://www.heungkukfire.co.kr/common/download.do"), true);
+  assert.equal(documents[1].documentType, "사업방법서");
+  assert.equal(documents[2].documentType, "상품요약서");
+});
+
 
