@@ -1,0 +1,146 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { buildFilename, classifyDocument, extractDate, extractPdfCandidates, sanitizeSegment } from "../src/collector.mjs";
+import { mapHanaProduct } from "../src/adapters/hana.mjs";
+import { mapHyundaiProduct } from "../src/adapters/hyundai.mjs";
+import { mapDbProduct } from "../src/adapters/db.mjs";
+import { parseKbDetail } from "../src/adapters/kb.mjs";
+import { mapSamsungProduct } from "../src/adapters/samsung.mjs";
+import { mapMeritzProduct } from "../src/adapters/meritz.mjs";
+
+test("document type classification", () => {
+  assert.equal(classifyDocument("상품 요약서 PDF"), "상품요약서");
+  assert.equal(classifyDocument("사업방법서 다운로드"), "사업방법서");
+  assert.equal(classifyDocument("보험약관"), "보험약관");
+});
+
+test("date extraction", () => {
+  assert.equal(extractDate("product_20250801_terms.pdf"), "2025-08-01");
+  assert.equal(extractDate("상품요약서_250901.pdf"), "2025-09-01");
+});
+
+test("safe filename follows requested convention", () => {
+  assert.equal(buildFilename({
+    insurerName: "현대해상",
+    productName: "굿앤굿/어린이보험",
+    documentType: "보험약관",
+    registeredAt: "2025-08-01"
+  }), "현대해상-2025-08-굿앤굿_어린이보험_보험약관_20250801.pdf");
+  assert.equal(sanitizeSegment("a:b*c?"), "a_b_c_");
+});
+
+test("PDF links are resolved and unofficial hosts are rejected", () => {
+  const insurer = {
+    id: "sample",
+    name: "샘플손해보험",
+    allowedHosts: ["official.example"]
+  };
+  const html = `
+    <a href="/files/좋은보험_상품요약서_20250801.pdf">좋은보험 상품요약서</a>
+    <a href="https://evil.example/사업방법서_20250801.pdf">외부 파일</a>`;
+  const items = extractPdfCandidates(html, "https://official.example/disclosure", insurer);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].documentType, "상품요약서");
+  assert.equal(items[0].registeredAt, "2025-08-01");
+});
+
+test("Hana public product response maps to three disclosure documents", () => {
+  const documents = mapHanaProduct({
+    sPrdNm: "하나 테스트보험",
+    sSaleStrDt: "20250801",
+    sSaleEndDt: "99999999",
+    sSaleStatus: "판매중",
+    sPolicyFileID: "policy123",
+    sBizFileID: "business123",
+    sSummaryFileID: "summary123"
+  }, ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].registeredAt, "2025-08-01");
+  assert.equal(documents[0].sourceUrl, "https://sso.hanainsure.co.kr/download/policy123");
+});
+
+test("Hyundai public product response maps to three disclosure documents", () => {
+  const documents = mapHyundaiProduct({
+    prodNm: "현대 테스트보험",
+    slStDt: "20250801  ",
+    slEdDt: "20260801",
+    slYn: "Y",
+    clauApnflId: "11111111-1111-1111-1111-111111111111",
+    userMthdApnflId: "22222222-2222-2222-2222-222222222222",
+    prodSmryApnflId: "33333333-3333-3333-3333-333333333333"
+  }, ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].registeredAt, "2025-08-01");
+  assert.equal(documents[0].insurerId, "hyundai");
+  assert.equal(documents[0].fileId, "11111111-1111-1111-1111-111111111111");
+});
+
+test("DB public product response maps to three disclosure documents", () => {
+  const documents = mapDbProduct({
+    SQNO: 10085,
+    PDC_NM: "무배당 프로미라이프 테스트보험",
+    SALE_BEGIN_DAY: "2026.01.01",
+    ARC_PDC_SL_YN: "0",
+    INPL_FINM: "약관_30652(11)_20260101.pdf",
+    BIZ_MDDC_FINM: "사방_30652(11)_20260101.pdf",
+    CNSL_SMAR_FINM: "요약_30652(11)_20260101.pdf"
+  }, ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].registeredAt, "2026-01-01");
+  assert.equal(documents[0].insurerId, "db");
+  assert.match(documents[0].sourceUrl, /^https:\/\/www\.idbins\.com\/cYakgwanDown\.do\?/);
+});
+
+test("KB public detail HTML maps disclosure rows", () => {
+  const html = `<table><tr>
+    <td>20260728</td><td></td>
+    <td><a href="/CG802030003.ec?fileNm=20260728_25326_1.pdf"><img alt="보험약관 PDF 보기"></a></td>
+    <td><a href="/CG802030003.ec?fileNm=20260728_25326_2.pdf"><img alt="사업방법서 PDF 보기"></a></td>
+    <td><a href="/CG802030003.ec?fileNm=20260728_25326_3.pdf"><img alt="상품요약서 PDF 보기"></a></td>
+  </tr></table>`;
+  const documents = parseKbDetail(html, {
+    productCode: "25326",
+    productName: "KB 테스트보험(26.07)",
+    saleStatus: "판매중"
+  }, ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].registeredAt, "2026-07-28");
+  assert.equal(documents[0].insurerId, "kb");
+  assert.equal(documents[0].fileName, "20260728_25326_1.pdf");
+});
+
+test("Samsung public product response maps three disclosure documents", () => {
+  const documents = mapSamsungProduct({
+    prdName: "삼성 테스트보험",
+    prdGun: "장기보험",
+    saleStDt: "20260701",
+    saleEnDt: "99991231",
+    prdfilename1: "/publication/pdf/TEST_0_20260701_file1.pdf",
+    prdfilename2: "/publication/pdf/TEST_0_20260701_file2.pdf",
+    prdfilename3: "/publication/pdf/TEST_0_20260701_file3.pdf"
+  }, ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].documentType, "보험약관");
+  assert.equal(documents[0].registeredAt, "2026-07-01");
+  assert.equal(documents[0].insurerId, "samsung");
+  assert.equal(documents[2].sourceUrl, "https://www.samsungfire.com/publication/pdf/TEST_0_20260701_file3.pdf");
+});
+
+test("Meritz public product response maps three disclosure documents", () => {
+  const documents = mapMeritzProduct({
+    ttlNm: "메리츠 테스트보험",
+    putupStDdTm: "20260910",
+    putupEdDdTm: "-",
+    file1: "/cu/test/terms.pdf",
+    "file1#[E]": "encrypted-terms",
+    file2: "/cu/test/business.pdf",
+    "file2#[E]": "encrypted-business",
+    file3: "/cu/test/summary.pdf",
+    "file3#[E]": "encrypted-summary"
+  }, ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].documentType, "보험약관");
+  assert.equal(documents[0].registeredAt, "2026-09-10");
+  assert.equal(documents[0].insurerId, "meritz");
+  assert.equal(documents[2].encryptedPath, "encrypted-summary");
+});
