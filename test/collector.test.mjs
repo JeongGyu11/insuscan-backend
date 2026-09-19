@@ -9,6 +9,7 @@ import { mapSamsungProduct } from "../src/adapters/samsung.mjs";
 import { mapMeritzProduct } from "../src/adapters/meritz.mjs";
 import { mapLotteProduct, parseLotteCatalog } from "../src/adapters/lotte.mjs";
 import { mapHeungkukProduct, parseHeungkukRows } from "../src/adapters/heungkuk.mjs";
+import { mapNhRevision, parseNhCatalog, parseNhPdtInfo } from "../src/adapters/nh.mjs";
 
 test("document type classification", () => {
   assert.equal(classifyDocument("상품 요약서 PDF"), "상품요약서");
@@ -200,5 +201,57 @@ test("Heungkuk public table response maps three disclosure documents", () => {
   assert.equal(documents[1].documentType, "사업방법서");
   assert.equal(documents[2].documentType, "상품요약서");
 });
+
+test("NH public Devon XML response maps three disclosure documents", () => {
+  const sampleCatalogXml = `
+    <xsync><LMultiData onAfterAction="fnSetPdtCdList">
+      <pdtGrCd><![CDATA[01]]></pdtGrCd>
+      <pdtDcd><![CDATA[01]]></pdtDcd>
+      <pdtCd><![CDATA[D11031L]]></pdtCd>
+      <pdtNm><![CDATA[My리치하우스가정종합보험2601]]></pdtNm>
+      <addPdtNm><![CDATA[]]></addPdtNm>
+      <ntgDivdYn><![CDATA[Y]]></ntgDivdYn>
+    </LMultiData></xsync>
+  `;
+  const products = parseNhCatalog(sampleCatalogXml, "판매중");
+  assert.equal(products.length, 1);
+  assert.equal(products[0].pdtCd, "D11031L");
+  assert.equal(products[0].productName, "(무)My리치하우스가정종합보험2601");
+  assert.equal(products[0].category, "장기보험");
+  assert.equal(products[0].saleStatus, "판매중");
+
+  const sampleInfoXml = `
+    <xsync><LMultiData onAfterAction="fnSetPdtInfoList">
+      <pdtHstNo><![CDATA[20260710153710013357]]></pdtHstNo>
+      <pdtCd><![CDATA[D11031L]]></pdtCd>
+      <pdtSelStDt><![CDATA[20260701]]></pdtSelStDt>
+      <pdtSelEdDt><![CDATA[99991231]]></pdtSelEdDt>
+      <fileId><![CDATA[F004280340]]></fileId>
+      <plcndAfileSeqn><![CDATA[1]]></plcndAfileSeqn>
+      <plcndAfileNm><![CDATA[24 (합본)-(무) My리치하우스 가정종합보험2601.pdf]]></plcndAfileNm>
+      <smmrAfileSeqn><![CDATA[2]]></smmrAfileSeqn>
+      <smmrAfileNm><![CDATA[03. 무배당 My리치하우스가정종합보험2601_상품요약서.pdf]]></smmrAfileNm>
+      <bzMtdAfileSeqn><![CDATA[4]]></bzMtdAfileSeqn>
+      <bzMtdAfileNm><![CDATA[01. 무배당 My리치하우스 가정종합보험2601_사업방법서 별지.pdf]]></bzMtdAfileNm>
+      <cfmtYn><![CDATA[Y]]></cfmtYn>
+    </LMultiData></xsync>
+  `;
+  const revisions = parseNhPdtInfo(sampleInfoXml, products[0]);
+  assert.equal(revisions.length, 1);
+  assert.equal(revisions[0].registeredAt, "2026-07-01");
+  assert.equal(revisions[0].saleEndedAt, null);
+  assert.equal(revisions[0].saleStatus, "판매중");
+
+  const documents = mapNhRevision(products[0], revisions[0], ["상품요약서", "사업방법서", "보험약관"]);
+  assert.equal(documents.length, 3);
+  assert.equal(documents[0].insurerId, "nh");
+  assert.equal(documents[0].insurerName, "NH농협손해보험");
+  assert.equal(documents[0].documentType, "보험약관");
+  assert.equal(documents[0].fileName, "24 (합본)-(무) My리치하우스 가정종합보험2601.pdf");
+  assert.equal(documents[0].sourceUrl, "https://www.nhfire.co.kr/imageView/downloadFile.ajax?fileId=F004280340&afileSeqn=1");
+  assert.equal(documents[1].documentType, "상품요약서");
+  assert.equal(documents[2].documentType, "사업방법서");
+});
+
 
 

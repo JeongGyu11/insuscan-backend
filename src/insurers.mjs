@@ -58,10 +58,10 @@ export const insurers = [
   {
     id: "nh",
     name: "NH농협손해보험",
-    sourceUrl: "https://www.nhfire.co.kr/",
+    sourceUrl: "https://www.nhfire.co.kr/announce/productAnnounce/retrieveInsuranceProductsAnnounce.nhfire",
     allowedHosts: ["nhfire.co.kr", "www.nhfire.co.kr", "m.nhfire.co.kr"],
-    strategy: "dynamic",
-    status: "source_path_required"
+    strategy: "nh_public_xml",
+    status: "live_adapter"
   },
   {
     id: "hana",

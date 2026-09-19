@@ -10,6 +10,7 @@ import { fetchSamsungPdf, searchSamsung } from "./adapters/samsung.mjs";
 import { fetchMeritzPdf, searchMeritz } from "./adapters/meritz.mjs";
 import { fetchLottePdf, searchLotte } from "./adapters/lotte.mjs";
 import { fetchHeungkukPdf, searchHeungkuk } from "./adapters/heungkuk.mjs";
+import { fetchNhPdf, searchNh } from "./adapters/nh.mjs";
 
 export const DOCUMENT_TYPES = new Set(["상품요약서", "사업방법서", "보험약관"]);
 
@@ -97,6 +98,7 @@ export async function searchInsurer(insurer, filters, fetchImpl = fetch) {
   if (insurer.strategy === "hana_public_json") return searchHana(filters, fetchImpl);
   if (insurer.strategy === "lotte_public_html") return searchLotte(filters, fetchImpl);
   if (insurer.strategy === "heungkuk_public_html") return searchHeungkuk(filters, fetchImpl);
+  if (insurer.strategy === "nh_public_xml") return searchNh(filters, fetchImpl);
   if (insurer.strategy !== "html_pdf_index") {
     return { insurerId: insurer.id, documents: [], warning: "전용 동적 어댑터 구현이 필요합니다." };
   }
@@ -154,6 +156,7 @@ async function fetchPdfBytes(document, fetchImpl) {
   if (document.insurerId === "hyundai") return fetchHyundaiPdf(document, fetchImpl);
   if (document.insurerId === "lotte") return fetchLottePdf(document, fetchImpl);
   if (document.insurerId === "heungkuk") return fetchHeungkukPdf(document, fetchImpl);
+  if (document.insurerId === "nh") return fetchNhPdf(document, fetchImpl);
   const response = await fetchImpl(document.sourceUrl, {
     headers: { "user-agent": "InsureDocHub/0.1 (+public-disclosure-research)" },
     redirect: "follow",
